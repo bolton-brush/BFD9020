@@ -1,5 +1,6 @@
 services:
   api:
+    image: ghcr.io/open-ortho/edu.case.bfd9020:local
     build:
       context: .
       dockerfile: Dockerfile
