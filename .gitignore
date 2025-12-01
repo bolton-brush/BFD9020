@@ -54,3 +54,4 @@ dist/
 *.orig
 terraform.tfstate
 terraform.tfstate.*
+actionlint
