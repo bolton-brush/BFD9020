@@ -1,4 +1,5 @@
 # edu.case.BFD9020
+
 AI services backend for the BFD9000 project, starting with FastAPI-based image classification.
 
 ## API
@@ -16,6 +17,20 @@ This FastAPI service exposes lightweight endpoints for both coarse X-ray typing 
 ## Utilities
 
 - `BFD9020.html` – browser tester that runs all endpoints in sequence. When the API is running visit `/test`; otherwise open the file locally and point it to a remote base URL. TIFF previews are decoded client-side via vendored `pako` + `UTIF` scripts exposed from `/static`.
+
+The endpoint expects calls to / so when behind a proxy, if using a path, you have to remove it. e.g.:
+
+``` nginx
+location /bfd9020/ {
+    proxy_pass http://bfd9020:9020/;
+    proxy_redirect off;
+    rewrite ^/bfd9020(.*)$ $1 break;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
 
 ## Local Docker Workflow
 
