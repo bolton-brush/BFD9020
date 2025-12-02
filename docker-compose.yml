@@ -8,3 +8,4 @@ services:
       - "9020:9020"
     environment:
       LOG_LEVEL: "INFO"
+      ROOT_PATH: "/bfd9020"

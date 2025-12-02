@@ -18,19 +18,31 @@ This FastAPI service exposes lightweight endpoints for both coarse X-ray typing 
 
 - `BFD9020.html` – browser tester that runs all endpoints in sequence. When the API is running visit `/test`; otherwise open the file locally and point it to a remote base URL. TIFF previews are decoded client-side via vendored `pako` + `UTIF` scripts exposed from `/static`.
 
-The endpoint expects calls to / so when behind a proxy, if using a path, you have to remove it. e.g.:
+## Reverse Proxy Deployment
 
-``` nginx
+When deploying behind a reverse proxy (e.g., nginx proxy manager) with a path prefix like `/bfd9020`, configure the proxy to strip the path before forwarding:
+
+```nginx
 location /bfd9020/ {
-    proxy_pass http://bfd9020:9020/;
-    proxy_redirect off;
     rewrite ^/bfd9020(.*)$ $1 break;
+    proxy_pass http://bfd9020:9020;
+    proxy_redirect off;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
 }
 ```
+
+Additionally, set the `ROOT_PATH` environment variable to inform FastAPI of its deployment path. This ensures OpenAPI/Swagger UI generates correct URLs:
+
+```yaml
+environment:
+  LOG_LEVEL: "INFO"
+  ROOT_PATH: "/bfd9020"
+```
+
+When `ROOT_PATH` is set, FastAPI will correctly generate OpenAPI schemas and documentation URLs that work through the proxy.
 
 ## Local Docker Workflow
 

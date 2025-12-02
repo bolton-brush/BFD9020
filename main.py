@@ -69,6 +69,9 @@ logger = logging.getLogger(__name__)
 watchfiles_logger = logging.getLogger("watchfiles.main")
 watchfiles_logger.setLevel(logging.WARNING)
 
+# Get root path for reverse proxy deployments
+ROOT_PATH = os.getenv("ROOT_PATH", "")
+
 # Global dictionary to store loaded models
 models = {}
 
@@ -113,7 +116,8 @@ app = FastAPI(
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
-    openapi_url="/openapi.json"
+    openapi_url="/openapi.json",
+    root_path=ROOT_PATH
 )
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
