@@ -18,7 +18,20 @@ This FastAPI service exposes lightweight endpoints for both coarse X-ray typing 
 
 - `BFD9020.html` – browser tester that runs all endpoints in sequence. When the API is running visit `/test`; otherwise open the file locally and point it to a remote base URL. TIFF previews are decoded client-side via vendored `pako` + `UTIF` scripts exposed from `/static`.
 
-## Reverse Proxy Deployment
+## Environment Variables
+
+- `LOG_LEVEL` – Controls logging verbosity: `DEBUG`, `INFO` (default), `WARNING`, `ERROR`, `CRITICAL`.
+- `ROOT_PATH` – Base path when deployed behind a reverse proxy (e.g., `/bfd9020`). FastAPI uses this to generate correct OpenAPI/Swagger URLs.
+- `ENABLE_DOCS` – Set to `true` to enable OpenAPI/Swagger documentation at `/docs`, `/redoc`, and `/openapi.json`. Defaults to `false` for security.
+
+Example with docs enabled:
+
+```yaml
+environment:
+  LOG_LEVEL: "INFO"
+  ROOT_PATH: "/bfd9020"
+  ENABLE_DOCS: "true"
+```
 
 When deploying behind a reverse proxy (e.g., nginx proxy manager) with a path prefix like `/bfd9020`, configure the proxy to strip the path before forwarding:
 

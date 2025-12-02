@@ -72,6 +72,12 @@ watchfiles_logger.setLevel(logging.WARNING)
 # Get root path for reverse proxy deployments
 ROOT_PATH = os.getenv("ROOT_PATH", "")
 
+# Determine if docs should be enabled (default: True for security, set ENABLE_DOCS=true to enable)
+ENABLE_DOCS = os.getenv("ENABLE_DOCS", "false").lower() == "true"
+DOCS_URL = "/docs" if ENABLE_DOCS else None
+REDOC_URL = "/redoc" if ENABLE_DOCS else None
+OPENAPI_URL = "/openapi.json" if ENABLE_DOCS else None
+
 # Global dictionary to store loaded models
 models = {}
 
@@ -114,9 +120,9 @@ app = FastAPI(
     description="API for accessing BFD9000 X-ray classification models.",
     version="0.1.0",
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url=DOCS_URL,
+    redoc_url=REDOC_URL,
+    openapi_url=OPENAPI_URL,
     root_path=ROOT_PATH
 )
 
