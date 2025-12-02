@@ -33,9 +33,8 @@ WORKDIR /app
 
 COPY main.py ./
 COPY README.md ./
-COPY dev_scratchpad.md ./dev_scratchpad.md
-COPY BFD9020.html ./
 COPY static ./static
+COPY BFD9020.html ./static/BFD9020.html
 COPY --from=model_assets /models ./models
 
 EXPOSE 9020
