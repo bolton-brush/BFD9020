@@ -32,7 +32,7 @@ FROM base AS runtime
 WORKDIR /app
 
 COPY main.py ./
-COPY README.md ./
+COPY LICENSE ./
 COPY static ./static
 COPY BFD9020.html ./static/BFD9020.html
 COPY --from=model_assets /models ./models
