@@ -1,4 +1,5 @@
 # edu.case.BFD9020
+
 AI services backend for the BFD9000 project, starting with FastAPI-based image classification.
 
 ## API
@@ -16,6 +17,45 @@ This FastAPI service exposes lightweight endpoints for both coarse X-ray typing 
 ## Utilities
 
 - `BFD9020.html` – browser tester that runs all endpoints in sequence. When the API is running visit `/test`; otherwise open the file locally and point it to a remote base URL. TIFF previews are decoded client-side via vendored `pako` + `UTIF` scripts exposed from `/static`.
+
+## Environment Variables
+
+- `LOG_LEVEL` – Controls logging verbosity: `DEBUG`, `INFO` (default), `WARNING`, `ERROR`, `CRITICAL`.
+- `ROOT_PATH` – Base path when deployed behind a reverse proxy (e.g., `/bfd9020`). FastAPI uses this to generate correct OpenAPI/Swagger URLs.
+- `ENABLE_DOCS` – Set to `true` to enable OpenAPI/Swagger documentation at `/docs`, `/redoc`, and `/openapi.json`. Defaults to `false` for security.
+
+Example with docs enabled:
+
+```yaml
+environment:
+  LOG_LEVEL: "INFO"
+  ROOT_PATH: "/bfd9020"
+  ENABLE_DOCS: "true"
+```
+
+When deploying behind a reverse proxy (e.g., nginx proxy manager) with a path prefix like `/bfd9020`, configure the proxy to strip the path before forwarding:
+
+```nginx
+location /bfd9020/ {
+    rewrite ^/bfd9020(.*)$ $1 break;
+    proxy_pass http://bfd9020:9020;
+    proxy_redirect off;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Additionally, set the `ROOT_PATH` environment variable to inform FastAPI of its deployment path. This ensures OpenAPI/Swagger UI generates correct URLs:
+
+```yaml
+environment:
+  LOG_LEVEL: "INFO"
+  ROOT_PATH: "/bfd9020"
+```
+
+When `ROOT_PATH` is set, FastAPI will correctly generate OpenAPI schemas and documentation URLs that work through the proxy.
 
 ## Local Docker Workflow
 
