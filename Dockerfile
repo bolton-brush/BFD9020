@@ -33,6 +33,7 @@ WORKDIR /app
 
 COPY main.py ./
 COPY README.md ./
+COPY LICENSE ./
 COPY dev_scratchpad.md ./dev_scratchpad.md
 COPY BFD9020.html ./
 COPY static ./static
