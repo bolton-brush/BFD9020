@@ -22,6 +22,18 @@ from skimage import exposure, img_as_ubyte
 ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/tiff"]
 MAX_IMAGE_SIZE = 10 * 1024 * 1024
 
+# Maps xtype model output labels to their canonical short codes.
+XRAY_TYPE_CODE: dict[str, str] = {
+    "Chest & Shoulder": "CS",
+    "Elbow":            "E",
+    "Foot & Ankle":     "FA",
+    "Frontal":          "F",
+    "Hand & Wrist":     "H",
+    "Hip & Pelvis":     "P",
+    "Knee":             "K",
+    "Lateral":          "L",
+}
+
 # ---------------------------------------------------------------------------
 # Vocabulary type aliases — sourced directly from the exported model vocabs
 # ---------------------------------------------------------------------------
@@ -38,6 +50,9 @@ XrayTypeLabel = Literal[
     "Lateral",
 ]
 
+#: Short codes corresponding to each XrayTypeLabel, from the image type system.
+XrayTypeCode = Literal["CS", "E", "FA", "F", "H", "P", "K", "L"]
+
 #: All classes produced by the lateral and frontal flip/rotation models.
 FlipRotLabel = Literal["0", "0F", "90", "90F", "180", "180F", "270", "270F", "none"]
 
@@ -47,35 +62,48 @@ FlipRotLabel = Literal["0", "0F", "90", "90F", "180", "180F", "270", "270F", "no
 
 
 class XrayClassResponse(BaseModel):
-    """Response from POST /xray-class."""
+    """Response from POST /xray-class.
+    NOTE: All returned types in this response (prediction, all_predictions[*][0])
+    are the *short code* (e.g., L, F, CS, not long label). The model still outputs
+    long-form labels; these are mapped to the short code in API logic.
+    """
 
-    prediction: XrayTypeLabel = Field(
-        description="Predicted X-ray type label."
+    prediction: XrayTypeCode = Field(
+        description="Predicted X-ray type code (short form, e.g. 'L' not 'Lateral')."
     )
     probability: float = Field(
         ge=0.0, le=1.0,
         description="Confidence score for the top prediction."
     )
-    all_predictions: list[tuple[XrayTypeLabel, float]] = Field(
+    all_predictions: list[tuple[XrayTypeCode, float]] = Field(
         description=(
-            "Full vocabulary with probabilities, ordered by the model's "
-            "internal class index. Each entry is [label, probability]."
+            "Full X-ray code vocabulary with probabilities, ordered to match the short codes used in the API (each [code, probability])."
+        )
+    )
+    code: Optional[XrayTypeCode] = Field(
+        default=None,
+        description=(
+            "Canonical short code for the predicted type, drawn from the "
+            "image type system (e.g. 'L' for Lateral, 'F' for Frontal). "
+            "Null if no code is defined for the predicted label."
         )
     )
 
+    # Example updated: now uses only short codes (CS, E, FA, F, H, P, K, L)
     model_config = {"json_schema_extra": {"example": {
-        "prediction": "Lateral",
-        "probability": 0.9871,
+        "prediction": "F",
+        "probability": 0.9432,
         "all_predictions": [
-            ["Chest & Shoulder", 0.0012],
-            ["Elbow", 0.0003],
-            ["Foot & Ankle", 0.0001],
-            ["Frontal", 0.0089],
-            ["Hand & Wrist", 0.0002],
-            ["Hip & Pelvis", 0.0001],
-            ["Knee", 0.0021],
-            ["Lateral", 0.9871],
+            ["CS", 0.0010],
+            ["E", 0.0004],
+            ["FA", 0.0003],
+            ["F", 0.9432],
+            ["H", 0.0120],
+            ["P", 0.0005],
+            ["K", 0.0004],
+            ["L", 0.0422]
         ],
+        "code": "F"
     }}}
 
 
@@ -143,11 +171,12 @@ class XrayInfoResponse(BaseModel):
         )
     )
 
+    # Example updated: type_prediction now uses the short code (e.g. 'L' or 'F')
     model_config = {"json_schema_extra": {"example": {
-        "type_prediction": "Lateral",
+        "type_prediction": "L",
         "type_probability": 0.9871,
         "rotation": 0,
-        "flip": True,
+        "flip": True
     }}}
 
 # function stub needed by models dataloaders
@@ -443,13 +472,15 @@ async def classify_xray(image: UploadFile = File(...)):
         logger.info(
             f"X-ray classification: {pred} with probability {probs[pred_idx]:.4f}")
 
-        # Prepare response
+        # Prepare response: always return codes, never long form
+        prediction_code = map_xray_type_code(str(pred))
         result = {
-            "prediction": str(pred),
+            "prediction": prediction_code,
             "probability": float(probs[pred_idx]),
             "all_predictions": [
-                [str(cls), float(prob)] for cls, prob in zip(xray_model.dls.vocab, probs)
-            ]
+                [map_xray_type_code(str(cls)), float(prob)] for cls, prob in zip(xray_model.dls.vocab, probs)
+            ],
+            "code": prediction_code,
         }
         return result
     except HTTPException as he:
@@ -550,6 +581,24 @@ async def classify_specific_model(image: UploadFile, model_key: str):
             "Error in classify_specific_model for model '%s': %s", model_key, e)
         raise HTTPException(
             status_code=500, detail="An error occurred while processing the image.")
+
+
+def map_xray_type_code(prediction: str) -> str | None:
+    """
+    Maps a raw xtype model label to its canonical short code.
+
+    Args:
+        prediction (str): The class label predicted by the xtype model.
+
+    Returns:
+        str | None: The short code (e.g. 'L', 'F', 'CS') or None if the
+            label has no entry in XRAY_TYPE_CODE.
+    """
+    code = XRAY_TYPE_CODE.get(prediction)
+    if code is None:
+        logger.warning(
+            "xray model returned label '%s' with no registered code.", prediction)
+    return code
 
 
 def map_fliprot_prediction(prediction: str, model_type: str):
