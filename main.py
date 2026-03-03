@@ -19,6 +19,7 @@ from skimage import exposure, img_as_ubyte
 
 
 # Constants
+VERSION = "0.2.0"
 ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/tiff"]
 MAX_IMAGE_SIZE = 10 * 1024 * 1024
 
@@ -277,7 +278,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="BFD9000 Ai API",
     description="API for accessing BFD9000 X-ray classification models.",
-    version="0.1.0",
+    version=VERSION,
     lifespan=lifespan,
     docs_url=DOCS_URL,
     redoc_url=REDOC_URL,
