@@ -19,7 +19,7 @@ from skimage import exposure, img_as_ubyte
 
 
 # Constants
-VERSION = "0.2.0"
+VERSION = "0.2.1-dev"
 ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/tiff"]
 MAX_IMAGE_SIZE = 10 * 1024 * 1024
 
