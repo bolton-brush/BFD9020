@@ -150,8 +150,8 @@ class FlipRotResponse(BaseModel):
 class XrayInfoResponse(BaseModel):
     """Response from POST /xray-info."""
 
-    type_prediction: XrayTypeLabel = Field(
-        description="Predicted X-ray type label from the xtype model."
+    type_prediction: XrayTypeCode = Field(
+        description="Predicted X-ray type as a short code (e.g. 'L', 'F')."
     )
     type_probability: float = Field(
         ge=0.0, le=1.0,
@@ -161,14 +161,14 @@ class XrayInfoResponse(BaseModel):
         default=None,
         description=(
             "Detected rotation in degrees. Populated only when "
-            "type_prediction is 'Lateral' or 'Frontal'; null otherwise."
+            "type_prediction is 'L' or 'F'; null otherwise."
         )
     )
     flip: Optional[bool] = Field(
         default=None,
         description=(
             "Whether the image is horizontally flipped. Populated only "
-            "when type_prediction is 'Lateral' or 'Frontal'; null otherwise."
+            "when type_prediction is 'L' or 'F'; null otherwise."
         )
     )
 
@@ -409,7 +409,7 @@ async def get_xray_info(image: UploadFile = File(...)):
 
         # Initialize response
         response_data = {
-            "type_prediction": xray_class,
+            "type_prediction": map_xray_type_code(xray_class),
             "type_probability": xray_prob,
             "rotation": None,
             "flip": None
