@@ -79,7 +79,9 @@ When `ROOT_PATH` is set, FastAPI will correctly generate OpenAPI schemas and doc
 ## Release Process (git-flow)
 
 - Start a release branch from `develop`: `git flow release start vX.Y.Z` (use SemVer).
+- Bump version in `main.py` to target version.
 - Update release artifacts (docs, changelog) and ensure tests pass; no hard-coded version file exists, so choosing the new SemVer is enough.
 - Finish the release to merge into `main` and back into `develop`: `git flow release finish vX.Y.Z`.
+- Update the version on `develop` by bumping minor and adding `-dev` suffix.
 - Push updated branches and the annotated tag: `git push origin main develop --tags`.
 - Pushing the tag triggers the GHCR workflow, producing images tagged with the SemVer and branch/SHA variants.
