@@ -2,6 +2,7 @@ import io
 import logging
 import os
 import sys
+from typing import Literal, Optional
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request
 from fastai.vision.all import load_learner, PILImage
 from contextlib import asynccontextmanager
@@ -10,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 import uvicorn
 import imageio
 import numpy as np
@@ -19,6 +21,134 @@ from skimage import exposure, img_as_ubyte
 # Constants
 ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/tiff"]
 MAX_IMAGE_SIZE = 10 * 1024 * 1024
+
+# ---------------------------------------------------------------------------
+# Vocabulary type aliases — sourced directly from the exported model vocabs
+# ---------------------------------------------------------------------------
+
+#: All classes produced by the xtype (X-ray type) model.
+XrayTypeLabel = Literal[
+    "Chest & Shoulder",
+    "Elbow",
+    "Foot & Ankle",
+    "Frontal",
+    "Hand & Wrist",
+    "Hip & Pelvis",
+    "Knee",
+    "Lateral",
+]
+
+#: All classes produced by the lateral and frontal flip/rotation models.
+FlipRotLabel = Literal["0", "0F", "90", "90F", "180", "180F", "270", "270F", "none"]
+
+# ---------------------------------------------------------------------------
+# Pydantic response schemas
+# ---------------------------------------------------------------------------
+
+
+class XrayClassResponse(BaseModel):
+    """Response from POST /xray-class."""
+
+    prediction: XrayTypeLabel = Field(
+        description="Predicted X-ray type label."
+    )
+    probability: float = Field(
+        ge=0.0, le=1.0,
+        description="Confidence score for the top prediction."
+    )
+    all_predictions: list[tuple[XrayTypeLabel, float]] = Field(
+        description=(
+            "Full vocabulary with probabilities, ordered by the model's "
+            "internal class index. Each entry is [label, probability]."
+        )
+    )
+
+    model_config = {"json_schema_extra": {"example": {
+        "prediction": "Lateral",
+        "probability": 0.9871,
+        "all_predictions": [
+            ["Chest & Shoulder", 0.0012],
+            ["Elbow", 0.0003],
+            ["Foot & Ankle", 0.0001],
+            ["Frontal", 0.0089],
+            ["Hand & Wrist", 0.0002],
+            ["Hip & Pelvis", 0.0001],
+            ["Knee", 0.0021],
+            ["Lateral", 0.9871],
+        ],
+    }}}
+
+
+class FlipRotResponse(BaseModel):
+    """Response from POST /lateral-fliprot and POST /frontal-fliprot."""
+
+    prediction: FlipRotLabel = Field(
+        description=(
+            "Predicted orientation class. The label encodes the rotation "
+            "angle (0/90/180/270) and, if present, an 'F' suffix meaning "
+            "the image is horizontally flipped. 'none' means orientation "
+            "could not be determined."
+        )
+    )
+    probability: float = Field(
+        ge=0.0, le=1.0,
+        description="Confidence score for the top prediction."
+    )
+    all_predictions: list[tuple[FlipRotLabel, float]] = Field(
+        description=(
+            "Full vocabulary with probabilities, ordered by the model's "
+            "internal class index. Each entry is [label, probability]."
+        )
+    )
+
+    model_config = {"json_schema_extra": {"example": {
+        "prediction": "0F",
+        "probability": 0.9412,
+        "all_predictions": [
+            ["0", 0.0210],
+            ["0F", 0.9412],
+            ["180", 0.0088],
+            ["180F", 0.0051],
+            ["270", 0.0098],
+            ["270F", 0.0072],
+            ["90", 0.0043],
+            ["90F", 0.0019],
+            ["none", 0.0007],
+        ],
+    }}}
+
+
+class XrayInfoResponse(BaseModel):
+    """Response from POST /xray-info."""
+
+    type_prediction: XrayTypeLabel = Field(
+        description="Predicted X-ray type label from the xtype model."
+    )
+    type_probability: float = Field(
+        ge=0.0, le=1.0,
+        description="Confidence score for the type prediction."
+    )
+    rotation: Optional[Literal[0, 90, 180, 270]] = Field(
+        default=None,
+        description=(
+            "Detected rotation in degrees. Populated only when "
+            "type_prediction is 'Lateral' or 'Frontal'; null otherwise."
+        )
+    )
+    flip: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Whether the image is horizontally flipped. Populated only "
+            "when type_prediction is 'Lateral' or 'Frontal'; null otherwise."
+        )
+    )
+
+    model_config = {"json_schema_extra": {"example": {
+        "type_prediction": "Lateral",
+        "type_probability": 0.9871,
+        "rotation": 0,
+        "flip": True,
+    }}}
 
 # function stub needed by models dataloaders
 
@@ -209,7 +339,7 @@ async def healthz():
     }
 
 
-@app.post("/xray-info")
+@app.post("/xray-info", response_model=XrayInfoResponse)
 async def get_xray_info(image: UploadFile = File(...)):
     """
     Endpoint to retrieve detailed information about an X-ray image.
@@ -275,7 +405,7 @@ async def get_xray_info(image: UploadFile = File(...)):
             status_code=500, detail="An error occurred while processing the image.")
 
 
-@app.post("/xray-class")
+@app.post("/xray-class", response_model=XrayClassResponse)
 async def classify_xray(image: UploadFile = File(...)):
     """
     Endpoint to classify an X-ray image into its type (e.g., lateral, frontal, chest, etc.).
@@ -330,7 +460,7 @@ async def classify_xray(image: UploadFile = File(...)):
             status_code=500, detail="An error occurred while processing the image.")
 
 
-@app.post("/lateral-fliprot")
+@app.post("/lateral-fliprot", response_model=FlipRotResponse)
 async def classify_lateral_fliprot(image: UploadFile = File(...)):
     """
     Endpoint to classify the rotation and flipping of a lateral ceph X-ray.
@@ -353,7 +483,7 @@ async def classify_lateral_fliprot(image: UploadFile = File(...)):
     return await classify_specific_model(image, 'lateral')
 
 
-@app.post("/frontal-fliprot")
+@app.post("/frontal-fliprot", response_model=FlipRotResponse)
 async def classify_frontal_fliprot(image: UploadFile = File(...)):
     """
     Endpoint to classify the rotation of a frontal ceph X-ray.
@@ -442,7 +572,9 @@ def map_fliprot_prediction(prediction: str, model_type: str):
         "180F": {"rotation": 180, "flip": True},
         "270": {"rotation": 270, "flip": False},
         "270F": {"rotation": 270, "flip": True},
-        "None": {"rotation": None, "flip": None}
+        # The model vocab uses lowercase "none"; accept both for resilience.
+        "none": {"rotation": None, "flip": None},
+        "None": {"rotation": None, "flip": None},
     }
     result = mapping.get(prediction, {"rotation": None, "flip": None})
     if result["rotation"] is None:
