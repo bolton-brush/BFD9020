@@ -2,6 +2,18 @@
 
 AI services backend for the BFD9000 project, starting with FastAPI-based image classification.
 
+## Models
+
+All three models are ResNet-18 classifiers trained with FP16 and exported via FastAI. They are loaded at startup and all three must be present for the service to run in a fully healthy state (`/healthz` returns `"status": "ok"`).
+
+| Model file                              | Key        | Role                                                                                 |
+|-----------------------------------------|------------|--------------------------------------------------------------------------------------|
+| `xtype-simple_resnet18_fp16_01`         | `xray`     | **X-ray type classifier** — coarse classification of the study (lateral, frontal, etc.) |
+| `lateral_fliprot_resnet18_fp16_07`      | `lateral`  | **Lateral ceph orientation** — detects flip/rotation for lateral cephalometric images |
+| `frontal_fliprot_resnet18_fp16_03`      | `frontal`  | **Frontal ceph orientation** — detects flip/rotation for frontal cephalometric images  |
+
+The `/xray-info` endpoint uses all three models in sequence: it first calls the `xray` model to determine the study type, then — if the result is `lateral` or `frontal` — calls the matching orientation model. The `/xray-class`, `/lateral-fliprot`, and `/frontal-fliprot` endpoints each use one model independently.
+
 ## API
 
 This FastAPI service exposes lightweight endpoints for both coarse X-ray typing and flip/rotation inference on lateral and frontal ceph studies.
@@ -67,7 +79,9 @@ When `ROOT_PATH` is set, FastAPI will correctly generate OpenAPI schemas and doc
 ## Release Process (git-flow)
 
 - Start a release branch from `develop`: `git flow release start vX.Y.Z` (use SemVer).
+- Bump version in `main.py` to target version.
 - Update release artifacts (docs, changelog) and ensure tests pass; no hard-coded version file exists, so choosing the new SemVer is enough.
 - Finish the release to merge into `main` and back into `develop`: `git flow release finish vX.Y.Z`.
+- Update the version on `develop` by bumping minor and adding `-dev` suffix.
 - Push updated branches and the annotated tag: `git push origin main develop --tags`.
 - Pushing the tag triggers the GHCR workflow, producing images tagged with the SemVer and branch/SHA variants.

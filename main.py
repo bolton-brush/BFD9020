@@ -2,6 +2,7 @@ import io
 import logging
 import os
 import sys
+from typing import Literal, Optional
 from fastapi import FastAPI, File, UploadFile, HTTPException, Request
 from fastai.vision.all import load_learner, PILImage
 from contextlib import asynccontextmanager
@@ -10,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 import uvicorn
 import imageio
 import numpy as np
@@ -17,8 +19,166 @@ from skimage import exposure, img_as_ubyte
 
 
 # Constants
+VERSION = "0.2.0"
 ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/tiff"]
 MAX_IMAGE_SIZE = 10 * 1024 * 1024
+
+# Maps xtype model output labels to their canonical short codes.
+XRAY_TYPE_CODE: dict[str, str] = {
+    "Chest & Shoulder": "CS",
+    "Elbow":            "E",
+    "Foot & Ankle":     "FA",
+    "Frontal":          "F",
+    "Hand & Wrist":     "H",
+    "Hip & Pelvis":     "P",
+    "Knee":             "K",
+    "Lateral":          "L",
+}
+
+# ---------------------------------------------------------------------------
+# Vocabulary type aliases — sourced directly from the exported model vocabs
+# ---------------------------------------------------------------------------
+
+#: All classes produced by the xtype (X-ray type) model.
+XrayTypeLabel = Literal[
+    "Chest & Shoulder",
+    "Elbow",
+    "Foot & Ankle",
+    "Frontal",
+    "Hand & Wrist",
+    "Hip & Pelvis",
+    "Knee",
+    "Lateral",
+]
+
+#: Short codes corresponding to each XrayTypeLabel, from the image type system.
+XrayTypeCode = Literal["CS", "E", "FA", "F", "H", "P", "K", "L"]
+
+#: All classes produced by the lateral and frontal flip/rotation models.
+FlipRotLabel = Literal["0", "0F", "90", "90F", "180", "180F", "270", "270F", "none"]
+
+# ---------------------------------------------------------------------------
+# Pydantic response schemas
+# ---------------------------------------------------------------------------
+
+
+class XrayClassResponse(BaseModel):
+    """Response from POST /xray-class.
+    NOTE: All returned types in this response (prediction, all_predictions[*][0])
+    are the *short code* (e.g., L, F, CS, not long label). The model still outputs
+    long-form labels; these are mapped to the short code in API logic.
+    """
+
+    prediction: XrayTypeCode = Field(
+        description="Predicted X-ray type code (short form, e.g. 'L' not 'Lateral')."
+    )
+    probability: float = Field(
+        ge=0.0, le=1.0,
+        description="Confidence score for the top prediction."
+    )
+    all_predictions: list[tuple[XrayTypeCode, float]] = Field(
+        description=(
+            "Full X-ray code vocabulary with probabilities, ordered to match the short codes used in the API (each [code, probability])."
+        )
+    )
+    code: Optional[XrayTypeCode] = Field(
+        default=None,
+        description=(
+            "Canonical short code for the predicted type, drawn from the "
+            "image type system (e.g. 'L' for Lateral, 'F' for Frontal). "
+            "Null if no code is defined for the predicted label."
+        )
+    )
+
+    # Example updated: now uses only short codes (CS, E, FA, F, H, P, K, L)
+    model_config = {"json_schema_extra": {"example": {
+        "prediction": "F",
+        "probability": 0.9432,
+        "all_predictions": [
+            ["CS", 0.0010],
+            ["E", 0.0004],
+            ["FA", 0.0003],
+            ["F", 0.9432],
+            ["H", 0.0120],
+            ["P", 0.0005],
+            ["K", 0.0004],
+            ["L", 0.0422]
+        ],
+        "code": "F"
+    }}}
+
+
+class FlipRotResponse(BaseModel):
+    """Response from POST /lateral-fliprot and POST /frontal-fliprot."""
+
+    prediction: FlipRotLabel = Field(
+        description=(
+            "Predicted orientation class. The label encodes the rotation "
+            "angle (0/90/180/270) and, if present, an 'F' suffix meaning "
+            "the image is horizontally flipped. 'none' means orientation "
+            "could not be determined."
+        )
+    )
+    probability: float = Field(
+        ge=0.0, le=1.0,
+        description="Confidence score for the top prediction."
+    )
+    all_predictions: list[tuple[FlipRotLabel, float]] = Field(
+        description=(
+            "Full vocabulary with probabilities, ordered by the model's "
+            "internal class index. Each entry is [label, probability]."
+        )
+    )
+
+    model_config = {"json_schema_extra": {"example": {
+        "prediction": "0F",
+        "probability": 0.9412,
+        "all_predictions": [
+            ["0", 0.0210],
+            ["0F", 0.9412],
+            ["180", 0.0088],
+            ["180F", 0.0051],
+            ["270", 0.0098],
+            ["270F", 0.0072],
+            ["90", 0.0043],
+            ["90F", 0.0019],
+            ["none", 0.0007],
+        ],
+    }}}
+
+
+class XrayInfoResponse(BaseModel):
+    """Response from POST /xray-info."""
+
+    type_prediction: XrayTypeLabel = Field(
+        description="Predicted X-ray type label from the xtype model."
+    )
+    type_probability: float = Field(
+        ge=0.0, le=1.0,
+        description="Confidence score for the type prediction."
+    )
+    rotation: Optional[Literal[0, 90, 180, 270]] = Field(
+        default=None,
+        description=(
+            "Detected rotation in degrees. Populated only when "
+            "type_prediction is 'Lateral' or 'Frontal'; null otherwise."
+        )
+    )
+    flip: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Whether the image is horizontally flipped. Populated only "
+            "when type_prediction is 'Lateral' or 'Frontal'; null otherwise."
+        )
+    )
+
+    # Example updated: type_prediction now uses the short code (e.g. 'L' or 'F')
+    model_config = {"json_schema_extra": {"example": {
+        "type_prediction": "L",
+        "type_probability": 0.9871,
+        "rotation": 0,
+        "flip": True
+    }}}
 
 # function stub needed by models dataloaders
 
@@ -118,7 +278,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="BFD9000 Ai API",
     description="API for accessing BFD9000 X-ray classification models.",
-    version="0.1.0",
+    version=VERSION,
     lifespan=lifespan,
     docs_url=DOCS_URL,
     redoc_url=REDOC_URL,
@@ -140,7 +300,7 @@ app.add_middleware(
 
 @app.get("/test", include_in_schema=False)
 async def serve_tester():
-    return FileResponse("BFD9020.html", media_type="text/html")
+    return FileResponse("static/BFD9020.html", media_type="text/html")
 
 
 @app.middleware("http")
@@ -209,7 +369,7 @@ async def healthz():
     }
 
 
-@app.post("/xray-info")
+@app.post("/xray-info", response_model=XrayInfoResponse)
 async def get_xray_info(image: UploadFile = File(...)):
     """
     Endpoint to retrieve detailed information about an X-ray image.
@@ -275,7 +435,7 @@ async def get_xray_info(image: UploadFile = File(...)):
             status_code=500, detail="An error occurred while processing the image.")
 
 
-@app.post("/xray-class")
+@app.post("/xray-class", response_model=XrayClassResponse)
 async def classify_xray(image: UploadFile = File(...)):
     """
     Endpoint to classify an X-ray image into its type (e.g., lateral, frontal, chest, etc.).
@@ -313,13 +473,15 @@ async def classify_xray(image: UploadFile = File(...)):
         logger.info(
             f"X-ray classification: {pred} with probability {probs[pred_idx]:.4f}")
 
-        # Prepare response
+        # Prepare response: always return codes, never long form
+        prediction_code = map_xray_type_code(str(pred))
         result = {
-            "prediction": str(pred),
+            "prediction": prediction_code,
             "probability": float(probs[pred_idx]),
             "all_predictions": [
-                [str(cls), float(prob)] for cls, prob in zip(xray_model.dls.vocab, probs)
-            ]
+                [map_xray_type_code(str(cls)), float(prob)] for cls, prob in zip(xray_model.dls.vocab, probs)
+            ],
+            "code": prediction_code,
         }
         return result
     except HTTPException as he:
@@ -330,7 +492,7 @@ async def classify_xray(image: UploadFile = File(...)):
             status_code=500, detail="An error occurred while processing the image.")
 
 
-@app.post("/lateral-fliprot")
+@app.post("/lateral-fliprot", response_model=FlipRotResponse)
 async def classify_lateral_fliprot(image: UploadFile = File(...)):
     """
     Endpoint to classify the rotation and flipping of a lateral ceph X-ray.
@@ -353,7 +515,7 @@ async def classify_lateral_fliprot(image: UploadFile = File(...)):
     return await classify_specific_model(image, 'lateral')
 
 
-@app.post("/frontal-fliprot")
+@app.post("/frontal-fliprot", response_model=FlipRotResponse)
 async def classify_frontal_fliprot(image: UploadFile = File(...)):
     """
     Endpoint to classify the rotation of a frontal ceph X-ray.
@@ -422,6 +584,24 @@ async def classify_specific_model(image: UploadFile, model_key: str):
             status_code=500, detail="An error occurred while processing the image.")
 
 
+def map_xray_type_code(prediction: str) -> str | None:
+    """
+    Maps a raw xtype model label to its canonical short code.
+
+    Args:
+        prediction (str): The class label predicted by the xtype model.
+
+    Returns:
+        str | None: The short code (e.g. 'L', 'F', 'CS') or None if the
+            label has no entry in XRAY_TYPE_CODE.
+    """
+    code = XRAY_TYPE_CODE.get(prediction)
+    if code is None:
+        logger.warning(
+            "xray model returned label '%s' with no registered code.", prediction)
+    return code
+
+
 def map_fliprot_prediction(prediction: str, model_type: str):
     """
     Maps the model's prediction to rotation and flip.
@@ -442,7 +622,9 @@ def map_fliprot_prediction(prediction: str, model_type: str):
         "180F": {"rotation": 180, "flip": True},
         "270": {"rotation": 270, "flip": False},
         "270F": {"rotation": 270, "flip": True},
-        "None": {"rotation": None, "flip": None}
+        # The model vocab uses lowercase "none"; accept both for resilience.
+        "none": {"rotation": None, "flip": None},
+        "None": {"rotation": None, "flip": None},
     }
     result = mapping.get(prediction, {"rotation": None, "flip": None})
     if result["rotation"] is None:
