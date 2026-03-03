@@ -19,7 +19,7 @@ from skimage import exposure, img_as_ubyte
 
 
 # Constants
-VERSION = "0.2.0-dev"
+VERSION = "0.2.0"
 ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/tiff"]
 MAX_IMAGE_SIZE = 10 * 1024 * 1024
 
@@ -300,7 +300,7 @@ app.add_middleware(
 
 @app.get("/test", include_in_schema=False)
 async def serve_tester():
-    return FileResponse("BFD9020.html", media_type="text/html")
+    return FileResponse("static/BFD9020.html", media_type="text/html")
 
 
 @app.middleware("http")
