@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 # Application
-VERSION: str = "1.2.0-onnx"
+VERSION: str = "1.2.1"
 LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO").upper()
 
 # Server & OpenAPI
