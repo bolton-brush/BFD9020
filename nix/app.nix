@@ -5,6 +5,7 @@
   utif,
   openapi-python-client,
   python3,
+  python3Packages,
   ...
 }:
 let
@@ -83,7 +84,9 @@ app.overrideAttrs (old: {
     client-sdk-func = clientSdkFunc;
     client-sdk = python3.pkgs.callPackage clientSdkFunc { };
     client-sdk-overlay = final: prev: {
-      bfd9020-ai-api-client = final.callPackage clientSdkFunc { };
+      bfd9020-ai-api-client = final.callPackage clientSdkFunc {
+        buildPythonPackage = final.buildPythonPackage or python3Packages.buildPythonPackage;
+      };
     };
   };
 })
