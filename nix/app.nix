@@ -54,23 +54,36 @@ let
       cp -r sdk/{*,.gitignore} $out
     '';
   };
-  client-sdk = python3.pkgs.buildPythonPackage {
-    pname = "bfd9020-ai-api-client";
-    version = "0.1.0";
-    format = "pyproject";
+  clientSdkFunc =
+    {
+      buildPythonPackage,
+      poetry-core,
+      attrs,
+      httpx,
+      python-dateutil,
+    }:
+    buildPythonPackage {
+      pname = "bfd9020-ai-api-client";
+      version = "0.1.0";
+      pyproject = true;
 
-    src = client-sdk-src;
+      src = client-sdk-src;
 
-    nativeBuildInputs = with python3.pkgs; [
-      poetry-core
-      attrs
-      httpx
-      python-dateutil
-    ];
-  };
+      build-system = [ poetry-core ];
+
+      dependencies = [
+        attrs
+        httpx
+        python-dateutil
+      ];
+    };
 in
 app.overrideAttrs (old: {
   passthru = (old.passthru or { }) // {
-    client-sdk = client-sdk;
+    client-sdk-func = clientSdkFunc;
+    client-sdk = python3.pkgs.callPackage clientSdkFunc { };
+    client-sdk-overlay = final: prev: {
+      bfd9020-ai-api-client = final.callPackage clientSdkFunc { };
+    };
   };
 })
