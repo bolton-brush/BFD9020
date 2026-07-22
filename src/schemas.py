@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import IntEnum, StrEnum
-from typing import TypedDict
+from typing import Annotated, TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -64,6 +65,14 @@ class FlipRot(TypedDict):
     flip: bool | None
 
 
+@dataclass
+class PredictionScore[LabelT]:
+    """A prediction label paired with a score"""
+
+    label: LabelT
+    score: Annotated[float, Field(ge=0.0, le=1.0)]
+
+
 class ClassificationResult[LabelT, Additional](BaseModel):
     """Base generic payload for single-head model predictions."""
 
@@ -71,7 +80,7 @@ class ClassificationResult[LabelT, Additional](BaseModel):
     probability: float = Field(
         ge=0.0, le=1.0, description="Confidence score for top prediction."
     )
-    all_predictions: dict[LabelT, float] = Field(
+    all_predictions: list[PredictionScore[LabelT]] = Field(
         description="Full label vocabulary paired with confidence probabilities.",
     )
     additional_info: Additional = Field(

@@ -12,7 +12,7 @@ import onnxruntime as ort
 from pydantic import BaseModel, Field, model_validator
 
 from image_utils import load_and_preprocess_image
-from schemas import ClassificationResult
+from schemas import ClassificationResult, PredictionScore
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -179,17 +179,15 @@ class ONNXModelWrapper[T, U]:
         probs: list[float] = self._softmax(logits).tolist()  # pyright: ignore[reportUnknownArgumentType, reportAny]
 
         top_idx = int(np.argmax(probs))
-        probs_list: list[tuple[U, float]] = [
-            (self.Classifier.map_output(cls), float(prob))
+        probs_list: list[PredictionScore[U]] = [
+            PredictionScore[U](self.Classifier.map_output(cls), float(prob))
             for cls, prob in zip(self.metadata.vocab, probs, strict=True)
         ]
-        top_class, top_prob = probs_list[top_idx]
-        probs_dict = dict(probs_list)
 
         return ClassificationResult[U, None](
-            prediction=top_class,
-            probability=top_prob,
-            all_predictions=probs_dict,
+            prediction=probs_list[top_idx].label,
+            probability=probs_list[top_idx].score,
+            all_predictions=probs_list,
             additional_info=None,
         )
 
