@@ -180,7 +180,7 @@ class ONNXModelWrapper[T, U]:
 
         top_idx = int(np.argmax(probs))
         probs_list: list[PredictionScore[U]] = [
-            PredictionScore[U](self.Classifier.map_output(cls), float(prob))
+            PredictionScore[U](label=self.Classifier.map_output(cls), score=float(prob))
             for cls, prob in zip(self.metadata.vocab, probs, strict=True)
         ]
 

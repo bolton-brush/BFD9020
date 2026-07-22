@@ -47,7 +47,15 @@ let
     nativeBuildInputs = [ openapi-python-client ];
 
     buildPhase = ''
-      openapi-python-client generate --path $src/openapi.json --output-path sdk
+      openapi-python-client generate --path $src/openapi.json --output-path sdk 2>&1 | tee build.log
+
+      # Check for warnings in build log; fail if present
+      if grep -i "warning" build.log; then
+          echo "--------------------------------------------------------"
+          echo "FAIL: openapi-python-client emitted warnings during build!"
+          echo "--------------------------------------------------------"
+          exit 1
+      fi
     '';
 
     installPhase = ''
@@ -83,6 +91,7 @@ app.overrideAttrs (old: {
   passthru = (old.passthru or { }) // {
     client-sdk-func = clientSdkFunc;
     client-sdk = python3.pkgs.callPackage clientSdkFunc { };
+    client-sdk-src = client-sdk-src;
     client-sdk-overlay = final: prev: {
       bfd9020-ai-api-client = final.callPackage clientSdkFunc {
         buildPythonPackage = final.buildPythonPackage or python3Packages.buildPythonPackage;

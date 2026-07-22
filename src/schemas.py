@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from enum import IntEnum, StrEnum
 from typing import Annotated, TypedDict
 
@@ -65,8 +64,7 @@ class FlipRot(TypedDict):
     flip: bool | None
 
 
-@dataclass
-class PredictionScore[LabelT]:
+class PredictionScore[LabelT](BaseModel):
     """A prediction label paired with a score"""
 
     label: LabelT
