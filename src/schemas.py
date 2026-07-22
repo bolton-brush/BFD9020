@@ -71,8 +71,7 @@ class ClassificationResult[LabelT, Additional](BaseModel):
     probability: float = Field(
         ge=0.0, le=1.0, description="Confidence score for top prediction."
     )
-    all_predictions: list[tuple[LabelT, float]] = Field(
-        default_factory=list,
+    all_predictions: dict[LabelT, float] = Field(
         description="Full label vocabulary paired with confidence probabilities.",
     )
     additional_info: Additional = Field(

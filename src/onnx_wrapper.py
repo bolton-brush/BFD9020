@@ -184,11 +184,12 @@ class ONNXModelWrapper[T, U]:
             for cls, prob in zip(self.metadata.vocab, probs, strict=True)
         ]
         top_class, top_prob = probs_list[top_idx]
+        probs_dict = dict(probs_list)
 
         return ClassificationResult[U, None](
             prediction=top_class,
             probability=top_prob,
-            all_predictions=probs_list,
+            all_predictions=probs_dict,
             additional_info=None,
         )
 
