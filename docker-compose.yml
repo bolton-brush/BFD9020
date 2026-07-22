@@ -1,12 +1,10 @@
 services:
   api:
-    image: ghcr.io/open-ortho/edu.case.bfd9020:local
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: localhost/bfd9020:build
     ports:
       - "9020:9020"
+    tmpfs: "/tmp"
     environment:
       LOG_LEVEL: "INFO"
-      ROOT_PATH: "/bfd9020"
+      ROOT_PATH: "/"
       ENABLE_DOCS: "true"

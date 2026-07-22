@@ -7,13 +7,13 @@ __pycache__/
 
 .env
 .env.*
-.envrc
 *.env.local
 *.env.development
 *.env.production
-.venv/
+.venv
 venv/
 env/
+.direnv
 
 # secrets / credentials
 secrets/
@@ -55,3 +55,8 @@ dist/
 terraform.tfstate
 terraform.tfstate.*
 actionlint
+
+# nix
+result
+result-*
+out

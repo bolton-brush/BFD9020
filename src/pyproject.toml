@@ -1,0 +1,49 @@
+[project]
+name = "bfd9020"
+version = "0.1.0"
+description = "AI services backend for the BFD9000 project, starting with FastAPI-based image classification."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+  "fastapi[standard]>=0.139.2",
+  "imageio>=2.37.3",
+  "numpy>=1.26.0",
+  "onnxruntime>=1.18.0",
+  "pillow>=10.0.0",
+  "scikit-image>=0.26.0",
+  "result>=0.17.0",
+  "pandas",
+  "python-multipart>=0.0.32"
+]
+
+[tool.basedpyright]
+extraPaths = ["."]
+useLibraryCodeForTypes = true
+reportMissingTypeStubs = "none"
+ignore = [
+  "**/typings",
+  "nix/store",
+  ".direnv",
+  "**/.venv"
+]
+exclude = [
+  "**/node_modules",
+  "**/__pycache__",
+  "**/.venv",
+  "**/.*"
+]
+venvPath = "."
+venv = ".venv"
+
+[tool.setuptools.packages.find]
+exclude = ["models*", "static*"]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = {index = "pytorch-cpu"}
+torchvision = {index = "pytorch-cpu"}
+torchaudio = {index = "pytorch-cpu"}
