@@ -4,6 +4,7 @@
   pako,
   utif,
   openapi-python-client,
+  python3,
   ...
 }:
 let
@@ -36,7 +37,7 @@ let
       python -c "import json; from main import app; print(json.dumps(app.openapi()))" > $openapi/openapi.json
     '';
   };
-  client-sdk = stdenvNoCC.mkDerivation {
+  client-sdk-src = stdenvNoCC.mkDerivation {
     name = "bfd9020-client-sdk";
 
     # Depends ONLY on openapi output, not the full app source
@@ -52,6 +53,20 @@ let
       mkdir -p $out
       cp -r sdk/{*,.gitignore} $out
     '';
+  };
+  client-sdk = python3.pkgs.buildPythonPackage {
+    pname = "bfd9020-ai-api-client";
+    version = "0.1.0";
+    format = "pyproject";
+
+    src = client-sdk-src;
+
+    nativeBuildInputs = with python3.pkgs; [
+      poetry-core
+      attrs
+      httpx
+      python-dateutil
+    ];
   };
 in
 app.overrideAttrs (old: {
