@@ -77,6 +77,14 @@ let
         httpx
         python-dateutil
       ];
+
+      passthru = {
+        dependencies = {
+          "attrs" = [ ];
+          "httpx" = [ ];
+          "python-dateutil" = [ ];
+        };
+      };
     };
 in
 app.overrideAttrs (old: {
