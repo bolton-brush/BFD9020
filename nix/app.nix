@@ -6,6 +6,7 @@
   openapi-python-client,
   python3,
   python3Packages,
+  jq,
   ...
 }:
 let
@@ -44,10 +45,32 @@ let
     # Depends ONLY on openapi output, not the full app source
     src = app.openapi;
 
-    nativeBuildInputs = [ openapi-python-client ];
+    nativeBuildInputs = [
+      openapi-python-client
+      jq
+    ];
 
     buildPhase = ''
-      openapi-python-client generate --path $src/openapi.json --output-path sdk 2>&1 | tee build.log
+      # Since openapi-python-client doesn't fully support openapi 3.1 yet
+      # We monkeypatch the json to convert any octet-stream type strings
+      # into the older format: binary specification.
+      # This allows the generated client to correctly type the request object
+      # as `File`
+      jq '
+        def patch_prop:
+          if (.type == "string" and .contentMediaType == "application/octet-stream") then
+            del(.contentMediaType) + {"format": "binary"}
+          elif has("anyOf") then
+            .anyOf |= map(patch_prop)
+          elif has("oneOf") then
+            .oneOf |= map(patch_prop)
+          else
+            .
+          end;
+
+        .components.schemas[]?.properties[]? |= patch_prop
+      ' $src/openapi.json > openapi.patched.json
+      openapi-python-client generate --path openapi.patched.json --output-path sdk 2>&1 | tee build.log
 
       # Check for warnings in build log; fail if present
       if grep -i "warning" build.log; then
