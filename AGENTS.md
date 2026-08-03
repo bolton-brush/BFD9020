@@ -7,7 +7,7 @@ cephalometric analysis. The toplevel is the `flake.nix`, which specifies repo-wi
 settings and `src/pyproject.toml` which specifies source-specific settings and
 dependencies.
 
-Read `README.md`, `dev_scratchpad.md`, and `src/README.md` for more information.
+Read `README.md` and `src/README.md` for more information.
 
 ## Testing
 

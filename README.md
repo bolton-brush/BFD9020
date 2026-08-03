@@ -173,3 +173,13 @@ git flow release start vX.Y.Z
 git flow release finish vX.Y.Z
 git push origin main develop --tags
 ```
+
+## Developing
+
+- It is recommended to be within a `nix develop` shell or `direnv allow` in order to
+  have the necessary dependencies to develop this project
+- To build and load the docker image, run the `podman-load` command provided by the
+  devshell before starting the `podman compose`.
+- To add a package, either:
+  - `uv add name_of_package`
+  - Edit `pyproject.toml` and run `uv lock`
