@@ -128,6 +128,11 @@ podman-load
 podman compose up
 ```
 
+The `podman-load` shell command is provided via the dev-shell through nix and its source
+can be found in `nix/load-podman.nix`. It builds a script that will stream the container
+contents directly into podman, allowing for quick development without saving the entire
+image into your nix store.
+
 ## Running the Application without Nix
 
 ```bash
