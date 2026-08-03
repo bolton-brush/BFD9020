@@ -60,3 +60,4 @@ actionlint
 result
 result-*
 out
+*.js

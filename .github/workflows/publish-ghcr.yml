@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - main # Triggers for staging builds
-      - dev # Triggers for dev branch builds
+      - develop # Triggers for dev branch builds
     tags:
       - "v*" # Triggers for production releases
 permissions:
@@ -40,7 +40,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Fetch all git tags
-        run: git fetch --prune --unimportances --tags
+        run: git fetch --prune --tags
       - name: Check if this is the newest SemVer tag
         id: semver_check
         run: |
@@ -81,8 +81,8 @@ jobs:
             # If it's a push to main, tag it as 'staging'
             type=raw,value=staging,enable=${{ github.ref == 'refs/heads/main' }}
 
-            # If it's a push to dev, tag it as 'dev'
-            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' }}
+            # If it's a push to dev, tag it as 'develop'
+            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
 
             # If it's a v* tag, generate the exact semver version (e.g., 1.2.5)
             type=semver,pattern={{version}}

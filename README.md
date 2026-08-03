@@ -62,6 +62,7 @@ To build either of these artifacts, run `nix build .#app.openapi`
 | `ROOT_PATH`   | `""`         | FastAPI root path for reverse-proxy deployments                 |
 | `ENABLE_DOCS` | `false`      | Set `true` to expose `/docs`, `/redoc`, `/openapi.json`         |
 | `MODELS_DIR`  | `src/models` | Change this value if models are stored in a different directory |
+| `ROOT_DOMAIN` | `::`         | Change this to set the CORS accepted domain header              |
 
 Example with docs enabled:
 
@@ -99,9 +100,21 @@ environment:
 When `ROOT_PATH` is set, FastAPI will correctly generate OpenAPI schemas and
 documentation URLs that work through the proxy.
 
-## Running the Application
+When developing for any application that requires a correct CORS context, ensure to set
+the `ROOT_DOMAIN` environment variable. However, since this project should not have its
+endpoints be public and instead be proxied by BFD9000, this should be a non-issue most
+of the time.
+
+## Running the Application with Nix
+
+Running the application with nix is recommended for a consistent environment during
+development. The project will run without nix, but will require additional setup and may
+not be completely consistent with production if anything accidentally deviates from the
+production build locally. It is recommended to always check the nix build and checks
+work before merging a PR, although this will happen within CI as well.
 
 ```bash
+nix develop
 cd src
 
 # Directly with uvicorn (models must be present locally)
@@ -114,6 +127,30 @@ python main.py
 podman-load
 podman compose up
 ```
+
+## Running the Application without Nix
+
+```bash
+# Ensure you have python 3.13 and uv installed locally first
+
+cd src
+
+uv venv
+# Follow the instructions given by uv to activate the environment
+
+# Directly with uvicorn (models must be present locally)
+uvicorn main:app --host "" --port 9020 --reload
+
+# Or via the __main__ guard
+python main.py
+
+# Building the docker image requires nix
+```
+
+If running without nix, the bfd9020 server will not have TIFF support by default.
+
+To get TIFF support without nix, download pako and UTIF from the URLS provided in
+`nix/pako.nix` and `nix/utif.nix` and place them within the `src/static` directory.
 
 ## Release Process (git-flow)
 

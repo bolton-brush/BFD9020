@@ -11,8 +11,8 @@
 
 - Entry point `main.py` spins up FastAPI with `lifespan` that loads three fastai
   learners. Run by `python main.py` or `uvicorn main:app --host 0.0.0.0 --port 9020`.
-- Async endpoints call FastAI `Learner.predict` via `run_in_threadpool`; uploads arrive
-  as `UploadFile`.
+- Async endpoints call ONNX predict with the model manager and uploads arrive as
+  `UploadFile`.
 - Upload guardrails: MIME whitelist (jpeg/png/tiff), 50 MB cap enforced via `seek` (no
   double read), centralized logging + exception hooks.
 - `/healthz` reports readiness (`ok` vs `degraded`) based on which learners are loaded.
@@ -39,7 +39,6 @@ Dependencies from the pyproject are automatically applied to the docker build wi
 ## Operational notes
 
 - Logging now stdout-only (single `StreamHandler`), container-friendly.
-- CORS wide open.
 - Compose file (`docker-compose.yml`) builds from repo root, publishes `9020:9020`, sets
   `LOG_LEVEL=INFO`.
 - Tester available at `/test` (serves `BFD9020.html`); standalone file also works

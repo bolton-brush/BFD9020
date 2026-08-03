@@ -1,5 +1,5 @@
 {
-  description = "Django development environment using Nix flakes";
+  description = "BFD9020 development environment for model prediction";
 
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";
@@ -92,7 +92,7 @@
         formatter = treefmtconfig.config.build.wrapper;
         devShells = {
           default = pkgs.mkShell {
-            name = "django-env";
+            name = "fastapi-env";
 
             buildInputs =
               with pkgs;
